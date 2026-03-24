@@ -125,19 +125,16 @@ const Index = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Quantidade de jogos</label>
-              <Select value={String(gameCount)} onValueChange={(v) => setGameCount(Number(v))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 10 }, (_, i) => (
-                    <SelectItem key={i + 1} value={String(i + 1)}>
-                      {i + 1} jogo{i > 0 ? "s" : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <label className="text-sm font-medium text-foreground">
+                Quantidade de jogos: <span className="font-bold text-primary">{gameCount}</span>
+              </label>
+              <Input
+                type="number"
+                min={1}
+                value={gameCount}
+                onChange={(e) => setGameCount(Math.max(1, Number(e.target.value) || 1))}
+                className="text-center"
+              />
             </div>
           </div>
 
