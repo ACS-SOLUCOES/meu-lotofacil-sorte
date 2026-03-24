@@ -3,12 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { generateGames, fetchLatestDraw, checkGame, type Game, type DrawResult } from "@/lib/lotofacil";
+import { generateGames, fetchLatestDraw, checkGame, parseMotor, validateMotor, ROWS, type Game, type DrawResult } from "@/lib/lotofacil";
 import GameCard, { getPrizeValue } from "@/components/GameCard";
 import LotteryBall from "@/components/LotteryBall";
 import { motion, AnimatePresence } from "framer-motion";
-import { Dices, Search, Loader2, Clover, Trophy, Banknote } from "lucide-react";
+import { Dices, Search, Loader2, Clover, Trophy, Banknote, Cpu } from "lucide-react";
 
 const Index = () => {
   const { toast } = useToast();
@@ -18,12 +20,29 @@ const Index = () => {
   const [draw, setDraw] = useState<DrawResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [useMotor, setUseMotor] = useState(false);
+  const [motorInput, setMotorInput] = useState("3x5x4x1x2");
+
+  const motorParsed = useMemo(() => parseMotor(motorInput), [motorInput]);
+  const motorValid = useMemo(() => motorParsed ? validateMotor(motorParsed, numbersPerGame) : false, [motorParsed, numbersPerGame]);
+  const motorSum = motorParsed ? motorParsed.reduce((a, b) => a + b, 0) : 0;
 
   const handleGenerate = () => {
-    const newGames = generateGames(gameCount, numbersPerGame);
-    setGames(newGames);
-    setDraw(null);
-    toast({ title: `${gameCount} jogo(s) gerado(s)!`, description: `${numbersPerGame} números por jogo` });
+    if (useMotor) {
+      if (!motorParsed || !motorValid) {
+        toast({ title: "Motor inválido!", description: `A soma deve ser ${numbersPerGame}. Atual: ${motorSum}`, variant: "destructive" });
+        return;
+      }
+      const newGames = generateGames(gameCount, numbersPerGame, motorParsed);
+      setGames(newGames);
+      setDraw(null);
+      toast({ title: `${gameCount} jogo(s) com motor IA!`, description: `Padrão: ${motorInput}` });
+    } else {
+      const newGames = generateGames(gameCount, numbersPerGame);
+      setGames(newGames);
+      setDraw(null);
+      toast({ title: `${gameCount} jogo(s) gerado(s)!`, description: `${numbersPerGame} números por jogo` });
+    }
   };
 
   const handleCheck = async () => {
@@ -122,10 +141,63 @@ const Index = () => {
             </div>
           </div>
 
+          {/* Motor IA */}
+          <div className="space-y-3 border-t border-border pt-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Cpu className="w-4 h-4 text-primary" />
+                <label className="text-sm font-medium text-foreground">Motor IA (Distribuição por linha)</label>
+              </div>
+              <Switch checked={useMotor} onCheckedChange={setUseMotor} />
+            </div>
+
+            <AnimatePresence>
+              {useMotor && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="space-y-3 overflow-hidden"
+                >
+                  <Input
+                    value={motorInput}
+                    onChange={(e) => setMotorInput(e.target.value)}
+                    placeholder="Ex: 3x5x4x1x2"
+                    className={`font-mono text-center text-lg ${
+                      motorParsed
+                        ? motorValid
+                          ? "border-primary/50 focus-visible:ring-primary"
+                          : "border-destructive/50 focus-visible:ring-destructive"
+                        : "border-destructive/50"
+                    }`}
+                  />
+                  <div className="grid grid-cols-5 gap-1.5 text-xs">
+                    {ROWS.map((row, i) => (
+                      <div key={i} className="text-center space-y-1">
+                        <div className="font-semibold text-muted-foreground">L{i + 1}</div>
+                        <div className="text-[10px] text-muted-foreground/70">
+                          {row[0]}-{row[row.length - 1]}
+                        </div>
+                        <div className={`font-bold text-lg ${motorParsed ? "text-primary" : "text-destructive"}`}>
+                          {motorParsed ? motorParsed[i] : "?"}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className={`text-xs text-center font-medium ${motorValid ? "text-primary" : "text-destructive"}`}>
+                    Soma: {motorSum} / {numbersPerGame}
+                    {!motorValid && motorParsed && ` — ajuste para ${numbersPerGame}`}
+                    {!motorParsed && " — formato inválido (use NxNxNxNxN)"}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
           <div className="flex flex-col sm:flex-row gap-3">
             <Button onClick={handleGenerate} className="flex-1 gap-2" size="lg">
-              <Dices className="w-5 h-5" />
-              Gerar Jogos
+              {useMotor ? <Cpu className="w-5 h-5" /> : <Dices className="w-5 h-5" />}
+              {useMotor ? "Gerar com Motor IA" : "Gerar Jogos"}
             </Button>
             <Button
               onClick={handleCheck}
