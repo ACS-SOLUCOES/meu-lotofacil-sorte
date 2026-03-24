@@ -1,14 +1,14 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
-import { generateGames, fetchLatestDraw, type Game, type DrawResult } from "@/lib/lotofacil";
-import GameCard from "@/components/GameCard";
+import { generateGames, fetchLatestDraw, checkGame, type Game, type DrawResult } from "@/lib/lotofacil";
+import GameCard, { getPrizeValue } from "@/components/GameCard";
 import LotteryBall from "@/components/LotteryBall";
 import { motion, AnimatePresence } from "framer-motion";
-import { Dices, Search, Loader2, Clover, Trophy } from "lucide-react";
+import { Dices, Search, Loader2, Clover, Trophy, Banknote } from "lucide-react";
 
 const Index = () => {
   const { toast } = useToast();
@@ -45,6 +45,21 @@ const Index = () => {
   };
 
   const resultNumbers = draw ? draw.dezenas.map(Number) : undefined;
+
+  const totalPrize = useMemo(() => {
+    if (!resultNumbers) return 0;
+    return games.reduce((sum, game) => {
+      const { matches } = checkGame(game, resultNumbers);
+      return sum + getPrizeValue(matches);
+    }, 0);
+  }, [games, resultNumbers]);
+
+  const betCost = useMemo(() => {
+    const costs: Record<number, number> = { 15: 3, 16: 48, 17: 408, 18: 2448, 19: 11628, 20: 46512 };
+    return (costs[numbersPerGame] || 3) * games.length;
+  }, [numbersPerGame, games.length]);
+
+  const formatCurrency = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   return (
     <div className="min-h-screen bg-background">
@@ -149,12 +164,46 @@ const Index = () => {
         {/* Games */}
         {games.length > 0 && (
           <div className="space-y-3">
-            <h2 className="text-lg font-bold text-foreground">Seus Jogos</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-foreground">Seus Jogos</h2>
+              <span className="text-sm text-muted-foreground">
+                Custo total: <span className="font-semibold text-foreground">{formatCurrency(betCost)}</span>
+              </span>
+            </div>
             {games.map((game, i) => (
               <GameCard key={i} game={game} index={i} result={resultNumbers} />
             ))}
           </div>
         )}
+
+        {/* Prize Summary */}
+        <AnimatePresence>
+          {resultNumbers && totalPrize > 0 && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300 }}
+            >
+              <Card className="p-5 space-y-3 border-primary/30 shadow-xl" style={{ background: "var(--gradient-hero)" }}>
+                <div className="flex items-center gap-2">
+                  <Banknote className="w-6 h-6 text-primary-foreground" />
+                  <h2 className="text-lg font-bold text-primary-foreground">Resumo de Prêmios</h2>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-primary-foreground/90 text-sm">
+                  <div>Custo das apostas:</div>
+                  <div className="font-semibold text-right">{formatCurrency(betCost)}</div>
+                  <div>Total de prêmios:</div>
+                  <div className="font-bold text-right text-lg">{formatCurrency(totalPrize)}</div>
+                  <div className="border-t border-primary-foreground/20 pt-2">Lucro:</div>
+                  <div className={`border-t border-primary-foreground/20 pt-2 font-bold text-right text-lg ${totalPrize - betCost >= 0 ? "" : "text-ball-miss"}`}>
+                    {formatCurrency(totalPrize - betCost)}
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
