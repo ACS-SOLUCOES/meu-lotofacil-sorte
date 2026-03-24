@@ -1,16 +1,26 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { generateGames, fetchLatestDraw, checkGame, parseMotor, motorTotal, ROWS, type Game, type DrawResult } from "@/lib/lotofacil";
+import {
+  generateGames,
+  fetchLatestDraw,
+  fetchLast5Draws,
+  analyzeDraws,
+  generateSmartGames,
+  checkGame,
+  ROWS,
+  type Game,
+  type DrawResult,
+  type MotorAnalysis,
+} from "@/lib/lotofacil";
 import GameCard, { getPrizeValue } from "@/components/GameCard";
 import LotteryBall from "@/components/LotteryBall";
 import { motion, AnimatePresence } from "framer-motion";
-import { Dices, Search, Loader2, Clover, Trophy, Banknote, Cpu } from "lucide-react";
+import { Dices, Search, Loader2, Clover, Trophy, Banknote, Cpu, Brain, TrendingUp, Flame, Snowflake } from "lucide-react";
 
 const Index = () => {
   const { toast } = useToast();
@@ -19,28 +29,33 @@ const Index = () => {
   const [games, setGames] = useState<Game[]>([]);
   const [draw, setDraw] = useState<DrawResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [checking, setChecking] = useState(false);
   const [useMotor, setUseMotor] = useState(false);
-  const [motorInput, setMotorInput] = useState("3x5x4x1x2");
+  const [motorLoading, setMotorLoading] = useState(false);
+  const [analysis, setAnalysis] = useState<MotorAnalysis | null>(null);
 
-  const motorParsed = useMemo(() => parseMotor(motorInput), [motorInput]);
-  const motorSum = motorParsed ? motorTotal(motorParsed) : 0;
-  const effectiveNumbers = useMotor && motorParsed ? motorSum : numbersPerGame;
-
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (useMotor) {
-      if (!motorParsed) {
-        toast({ title: "Motor inválido!", description: "Use o formato NxNxNxNxN", variant: "destructive" });
-        return;
+      setMotorLoading(true);
+      try {
+        let currentAnalysis = analysis;
+        if (!currentAnalysis) {
+          toast({ title: "🧠 Analisando últimos 5 concursos...", description: "Aguarde enquanto o Motor IA processa os dados" });
+          const draws = await fetchLast5Draws();
+          currentAnalysis = analyzeDraws(draws);
+          setAnalysis(currentAnalysis);
+        }
+        const newGames = generateSmartGames(currentAnalysis, gameCount, numbersPerGame);
+        setGames(newGames);
+        setDraw(null);
+        toast({
+          title: `🧠 ${gameCount} jogo(s) inteligente(s) gerado(s)!`,
+          description: `Baseado nos concursos ${currentAnalysis.draws[0].concurso}–${currentAnalysis.draws[currentAnalysis.draws.length - 1].concurso}`,
+        });
+      } catch {
+        toast({ title: "Erro ao analisar concursos", description: "Tente novamente mais tarde.", variant: "destructive" });
+      } finally {
+        setMotorLoading(false);
       }
-      if (motorSum < 15 || motorSum > 20) {
-        toast({ title: "Quantidade inválida!", description: `A soma deve ser entre 15 e 20. Atual: ${motorSum}`, variant: "destructive" });
-        return;
-      }
-      const newGames = generateGames(gameCount, motorSum, motorParsed);
-      setGames(newGames);
-      setDraw(null);
-      toast({ title: `${gameCount} jogo(s) com motor IA!`, description: `Padrão: ${motorInput} (${motorSum} números)` });
     } else {
       const newGames = generateGames(gameCount, numbersPerGame);
       setGames(newGames);
@@ -58,12 +73,25 @@ const Index = () => {
     try {
       const result = await fetchLatestDraw();
       setDraw(result);
-      setChecking(true);
       toast({ title: `Concurso ${result.concurso}`, description: `Resultado: ${result.dezenas.join(", ")}` });
     } catch {
       toast({ title: "Erro ao buscar resultado", description: "Tente novamente mais tarde.", variant: "destructive" });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRefreshAnalysis = async () => {
+    setMotorLoading(true);
+    try {
+      const draws = await fetchLast5Draws();
+      const newAnalysis = analyzeDraws(draws);
+      setAnalysis(newAnalysis);
+      toast({ title: "🧠 Análise atualizada!", description: `Concursos ${draws[0].concurso}–${draws[draws.length - 1].concurso}` });
+    } catch {
+      toast({ title: "Erro ao atualizar análise", variant: "destructive" });
+    } finally {
+      setMotorLoading(false);
     }
   };
 
@@ -146,10 +174,18 @@ const Index = () => {
           <div className="space-y-3 border-t border-border pt-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Cpu className="w-4 h-4 text-primary" />
-                <label className="text-sm font-medium text-foreground">Motor IA (Distribuição por linha)</label>
+                <Brain className="w-4 h-4 text-primary" />
+                <label className="text-sm font-medium text-foreground">Motor IA — Análise Preditiva</label>
               </div>
-              <Switch checked={useMotor} onCheckedChange={setUseMotor} />
+              <Switch
+                checked={useMotor}
+                onCheckedChange={(v) => {
+                  setUseMotor(v);
+                  if (v && !analysis) {
+                    handleRefreshAnalysis();
+                  }
+                }}
+              />
             </div>
 
             <AnimatePresence>
@@ -158,46 +194,117 @@ const Index = () => {
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="space-y-3 overflow-hidden"
+                  className="space-y-4 overflow-hidden"
                 >
-                  <Input
-                    value={motorInput}
-                    onChange={(e) => setMotorInput(e.target.value)}
-                    placeholder="Ex: 3x5x4x1x2"
-                    className={`font-mono text-center text-lg ${
-                      motorParsed
-                        ? motorSum >= 15 && motorSum <= 20
-                          ? "border-primary/50 focus-visible:ring-primary"
-                          : "border-destructive/50 focus-visible:ring-destructive"
-                        : "border-destructive/50"
-                    }`}
-                  />
-                  <div className="grid grid-cols-5 gap-1.5 text-xs">
-                    {ROWS.map((row, i) => (
-                      <div key={i} className="text-center space-y-1">
-                        <div className="font-semibold text-muted-foreground">L{i + 1}</div>
-                        <div className="text-[10px] text-muted-foreground/70">
-                          {row[0]}-{row[row.length - 1]}
-                        </div>
-                        <div className={`font-bold text-lg ${motorParsed ? "text-primary" : "text-destructive"}`}>
-                          {motorParsed ? motorParsed[i] : "?"}
-                        </div>
+                  {motorLoading && !analysis && (
+                    <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span className="text-sm">Analisando últimos 5 concursos...</span>
+                    </div>
+                  )}
+
+                  {analysis && (
+                    <div className="space-y-3">
+                      {/* Concursos analisados */}
+                      <div className="text-xs text-muted-foreground text-center">
+                        Concursos analisados:{" "}
+                        <span className="font-semibold text-foreground">
+                          {analysis.draws.map((d) => d.concurso).join(", ")}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="ml-2 h-6 text-xs"
+                          onClick={handleRefreshAnalysis}
+                          disabled={motorLoading}
+                        >
+                          {motorLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : "↻ Atualizar"}
+                        </Button>
                       </div>
-                    ))}
-                  </div>
-                  <div className={`text-xs text-center font-medium ${motorParsed && motorSum >= 15 && motorSum <= 20 ? "text-primary" : "text-destructive"}`}>
-                    Soma: {motorSum} números
-                    {motorParsed && (motorSum < 15 || motorSum > 20) && " — deve ser entre 15 e 20"}
-                    {!motorParsed && " — formato inválido (use NxNxNxNxN)"}
-                  </div>
+
+                      {/* Números quentes */}
+                      <Card className="p-3 space-y-2 bg-muted/30">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                          <Flame className="w-3.5 h-3.5 text-destructive" />
+                          Números Quentes (mais frequentes)
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {analysis.hotNumbers.slice(0, 10).map((n, i) => (
+                            <motion.span
+                              key={n}
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              transition={{ delay: i * 0.05 }}
+                              className="inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold bg-primary text-primary-foreground"
+                            >
+                              {n}
+                            </motion.span>
+                          ))}
+                        </div>
+                      </Card>
+
+                      {/* Números frios */}
+                      <Card className="p-3 space-y-2 bg-muted/30">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                          <Snowflake className="w-3.5 h-3.5 text-blue-400" />
+                          Números Frios (menos frequentes)
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {analysis.coldNumbers.slice(0, 10).map((n, i) => (
+                            <motion.span
+                              key={n}
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              transition={{ delay: i * 0.05 }}
+                              className="inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold bg-muted text-muted-foreground border border-border"
+                            >
+                              {n}
+                            </motion.span>
+                          ))}
+                        </div>
+                      </Card>
+
+                      {/* Estatísticas */}
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <Card className="p-2.5 bg-muted/30 text-center">
+                          <div className="text-muted-foreground">Par / Ímpar</div>
+                          <div className="font-bold text-foreground">
+                            {analysis.evenOddRatio.even} / {analysis.evenOddRatio.odd}
+                          </div>
+                        </Card>
+                        <Card className="p-2.5 bg-muted/30 text-center">
+                          <div className="text-muted-foreground">Distribuição por Linha</div>
+                          <div className="font-bold text-foreground font-mono">
+                            {analysis.rowDistribution.join(" · ")}
+                          </div>
+                        </Card>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground justify-center">
+                        <TrendingUp className="w-3 h-3" />
+                        Jogos gerados com pesos baseados em frequência, distribuição e padrões
+                      </div>
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
-            <Button onClick={handleGenerate} className="flex-1 gap-2" size="lg">
-              {useMotor ? <Cpu className="w-5 h-5" /> : <Dices className="w-5 h-5" />}
+            <Button
+              onClick={handleGenerate}
+              className="flex-1 gap-2"
+              size="lg"
+              disabled={motorLoading && useMotor}
+            >
+              {motorLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : useMotor ? (
+                <Brain className="w-5 h-5" />
+              ) : (
+                <Dices className="w-5 h-5" />
+              )}
               {useMotor ? "Gerar com Motor IA" : "Gerar Jogos"}
             </Button>
             <Button
