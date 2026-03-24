@@ -283,3 +283,164 @@ export function generateSmartGames(
 
   return games;
 }
+
+// ============ MOTOR EINSTEIN ============
+// Inspired by Einstein's concepts: entropy, statistical equilibrium,
+// hidden variable theory, symmetry breaking, and Boltzmann distribution
+
+export interface EinsteinAnalysis {
+  draws: DrawResult[];
+  entropy: Record<number, number>;          // Shannon entropy per number position
+  boltzmannWeights: Record<number, number>; // Boltzmann-like energy distribution
+  symmetryScore: Record<number, number>;    // How "balanced" each number is
+  hiddenPatterns: number[][];               // Discovered hidden correlations
+  equilibriumState: number[];               // Numbers at statistical equilibrium
+  deviationNumbers: number[];               // Numbers deviating from expected distribution
+  goldenRatioPositions: number[];           // Numbers aligned with golden ratio spacing
+}
+
+export function analyzeDrawsEinstein(draws: DrawResult[]): EinsteinAnalysis {
+  const allNums = draws.map(d => d.dezenas.map(Number).sort((a, b) => a - b));
+  const totalDraws = draws.length;
+
+  // 1. Frequency base
+  const freq: Record<number, number> = {};
+  for (let i = 1; i <= 25; i++) freq[i] = 0;
+  for (const nums of allNums) for (const n of nums) freq[n]++;
+
+  // 2. Shannon Entropy per number — measures unpredictability
+  const entropy: Record<number, number> = {};
+  for (let i = 1; i <= 25; i++) {
+    const p = freq[i] / (totalDraws * 15); // probability of appearance
+    entropy[i] = p > 0 ? -p * Math.log2(p) - (1 - p) * Math.log2(1 - p || 0.001) : 0;
+  }
+
+  // 3. Boltzmann Distribution — "energy levels" based on deviation from expected
+  const expectedFreq = (totalDraws * 15) / 25; // expected uniform frequency
+  const boltzmannWeights: Record<number, number> = {};
+  const kT = 1.5; // temperature parameter
+  for (let i = 1; i <= 25; i++) {
+    const energy = Math.abs(freq[i] - expectedFreq);
+    boltzmannWeights[i] = Math.exp(-energy / kT);
+  }
+
+  // 4. Symmetry Score — how symmetrically a number appears relative to center (13)
+  const symmetryScore: Record<number, number> = {};
+  for (let i = 1; i <= 25; i++) {
+    const mirror = 26 - i; // symmetric counterpart
+    const myFreq = freq[i] || 0;
+    const mirrorFreq = freq[mirror] || 0;
+    symmetryScore[i] = 1 / (1 + Math.abs(myFreq - mirrorFreq)); // closer = higher score
+  }
+
+  // 5. Hidden Variable Patterns — pairs/triples that always appear together (Einstein's hidden variables)
+  const pairMap = new Map<string, number>();
+  for (const nums of allNums) {
+    for (let i = 0; i < nums.length; i++) {
+      for (let j = i + 1; j < nums.length; j++) {
+        const key = `${nums[i]}-${nums[j]}`;
+        pairMap.set(key, (pairMap.get(key) || 0) + 1);
+      }
+    }
+  }
+  const hiddenPatterns: number[][] = [];
+  for (const [key, count] of pairMap.entries()) {
+    if (count >= totalDraws * 0.8) { // appears in 80%+ of draws
+      hiddenPatterns.push(key.split("-").map(Number));
+    }
+  }
+
+  // 6. Equilibrium State — numbers closest to expected frequency (stable)
+  const deviations = Array.from({ length: 25 }, (_, i) => ({
+    num: i + 1,
+    dev: Math.abs(freq[i + 1] - expectedFreq),
+  }));
+  deviations.sort((a, b) => a.dev - b.dev);
+  const equilibriumState = deviations.slice(0, 12).map(d => d.num);
+  const deviationNumbers = deviations.slice(12).map(d => d.num);
+
+  // 7. Golden Ratio positions — Fibonacci/golden ratio spacing
+  const phi = 1.618033988749;
+  const goldenRatioPositions: number[] = [];
+  for (let i = 1; i <= 25; i++) {
+    const goldenPos = Math.round(((i * phi) % 25) + 1);
+    if (goldenPos >= 1 && goldenPos <= 25 && !goldenRatioPositions.includes(goldenPos)) {
+      goldenRatioPositions.push(goldenPos);
+    }
+  }
+
+  return {
+    draws,
+    entropy,
+    boltzmannWeights,
+    symmetryScore,
+    hiddenPatterns,
+    equilibriumState,
+    deviationNumbers,
+    goldenRatioPositions,
+  };
+}
+
+export function generateEinsteinGame(analysis: EinsteinAnalysis, count: number): Game {
+  const { boltzmannWeights, symmetryScore, entropy, hiddenPatterns, goldenRatioPositions } = analysis;
+
+  // Composite weight combining all Einstein factors
+  const weights: { num: number; weight: number }[] = [];
+  for (let i = 1; i <= 25; i++) {
+    const boltzmann = boltzmannWeights[i] || 0.5;
+    const symmetry = symmetryScore[i] || 0.5;
+    const ent = entropy[i] || 0.5;
+    const goldenBonus = goldenRatioPositions.includes(i) ? 1.3 : 1.0;
+
+    // Hidden pattern bonus — numbers in strong pairs get boosted
+    let patternBonus = 1.0;
+    for (const pair of hiddenPatterns) {
+      if (pair.includes(i)) patternBonus += 0.15;
+    }
+
+    // Einstein formula: W = B × S × E^0.5 × G × P × R
+    const randomFactor = 0.6 + Math.random() * 0.8;
+    const weight = boltzmann * symmetry * Math.sqrt(ent + 0.1) * goldenBonus * patternBonus * randomFactor;
+    weights.push({ num: i, weight });
+  }
+
+  // Weighted random selection
+  const selected: number[] = [];
+  const pool = [...weights];
+
+  while (selected.length < count && pool.length > 0) {
+    const totalW = pool.reduce((s, x) => s + x.weight, 0);
+    let rand = Math.random() * totalW;
+    let idx = 0;
+    for (let i = 0; i < pool.length; i++) {
+      rand -= pool[i].weight;
+      if (rand <= 0) { idx = i; break; }
+    }
+    selected.push(pool[idx].num);
+    pool.splice(idx, 1);
+  }
+
+  return selected.sort((a, b) => a - b);
+}
+
+export function generateEinsteinGames(
+  analysis: EinsteinAnalysis,
+  quantity: number,
+  numbersPerGame: number
+): Game[] {
+  const games: Game[] = [];
+  const seen = new Set<string>();
+
+  let attempts = 0;
+  while (games.length < quantity && attempts < quantity * 10) {
+    const game = generateEinsteinGame(analysis, numbersPerGame);
+    const key = game.join(",");
+    if (!seen.has(key)) {
+      seen.add(key);
+      games.push(game);
+    }
+    attempts++;
+  }
+
+  return games;
+}
