@@ -166,7 +166,7 @@ const Index = () => {
                     placeholder="Ex: 3x5x4x1x2"
                     className={`font-mono text-center text-lg ${
                       motorParsed
-                        ? motorValid
+                        ? motorSum >= 15 && motorSum <= 20
                           ? "border-primary/50 focus-visible:ring-primary"
                           : "border-destructive/50 focus-visible:ring-destructive"
                         : "border-destructive/50"
@@ -185,9 +185,9 @@ const Index = () => {
                       </div>
                     ))}
                   </div>
-                  <div className={`text-xs text-center font-medium ${motorValid ? "text-primary" : "text-destructive"}`}>
-                    Soma: {motorSum} / {numbersPerGame}
-                    {!motorValid && motorParsed && ` — ajuste para ${numbersPerGame}`}
+                  <div className={`text-xs text-center font-medium ${motorParsed && motorSum >= 15 && motorSum <= 20 ? "text-primary" : "text-destructive"}`}>
+                    Soma: {motorSum} números
+                    {motorParsed && (motorSum < 15 || motorSum > 20) && " — deve ser entre 15 e 20"}
                     {!motorParsed && " — formato inválido (use NxNxNxNxN)"}
                   </div>
                 </motion.div>
