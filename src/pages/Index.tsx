@@ -6,7 +6,7 @@ import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { generateGames, fetchLatestDraw, checkGame, parseMotor, validateMotor, ROWS, type Game, type DrawResult } from "@/lib/lotofacil";
+import { generateGames, fetchLatestDraw, checkGame, parseMotor, motorTotal, ROWS, type Game, type DrawResult } from "@/lib/lotofacil";
 import GameCard, { getPrizeValue } from "@/components/GameCard";
 import LotteryBall from "@/components/LotteryBall";
 import { motion, AnimatePresence } from "framer-motion";
