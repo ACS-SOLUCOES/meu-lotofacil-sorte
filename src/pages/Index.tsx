@@ -9,9 +9,6 @@ import GameCard, { getPrizeValue } from "@/components/GameCard";
 import LotteryBall from "@/components/LotteryBall";
 import { motion, AnimatePresence } from "framer-motion";
 import { Dices, Search, Loader2, Clover, Trophy, Banknote } from "lucide-react";
-import LotteryBall from "@/components/LotteryBall";
-import { motion, AnimatePresence } from "framer-motion";
-import { Dices, Search, Loader2, Clover, Trophy } from "lucide-react";
 
 const Index = () => {
   const { toast } = useToast();
