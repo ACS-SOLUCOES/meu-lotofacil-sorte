@@ -208,7 +208,7 @@ const Index = () => {
               <span className="text-[10px] text-muted-foreground">(selecione um ou mais)</span>
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 justify-center">
               <button
                 onClick={() => toggleMotor("preditivo")}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium transition-all ${
@@ -485,25 +485,62 @@ const Index = () => {
         <AnimatePresence>
           {resultNumbers && totalPrize > 0 && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ type: "spring", stiffness: 300 }}
+              initial={{ opacity: 0, scale: 0.5, y: 40 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ type: "spring", stiffness: 300, damping: 20 }}
             >
-              <Card className="p-5 space-y-3 border-primary/30 shadow-xl" style={{ background: "var(--gradient-hero)" }}>
-                <div className="flex items-center gap-2">
-                  <Banknote className="w-6 h-6 text-primary-foreground" />
+              <Card className="p-5 space-y-3 border-primary/30 shadow-xl overflow-hidden relative" style={{ background: "var(--gradient-hero)" }}>
+                {/* Animated shine effect */}
+                <motion.div
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12"
+                  initial={{ x: "-100%" }}
+                  animate={{ x: "200%" }}
+                  transition={{ duration: 1.5, delay: 0.5, repeat: Infinity, repeatDelay: 3 }}
+                />
+                <motion.div
+                  className="flex items-center gap-2"
+                  initial={{ x: -20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.2 }}
+                >
+                  <motion.div
+                    animate={{ rotate: [0, -10, 10, -10, 0] }}
+                    transition={{ delay: 0.5, duration: 0.5 }}
+                  >
+                    <Banknote className="w-6 h-6 text-primary-foreground" />
+                  </motion.div>
                   <h2 className="text-lg font-bold text-primary-foreground">Resumo de Prêmios</h2>
-                </div>
-                <div className="grid grid-cols-2 gap-3 text-primary-foreground/90 text-sm">
-                  <div>Custo das apostas:</div>
-                  <div className="font-semibold text-right">{formatCurrency(betCost)}</div>
-                  <div>Total de prêmios:</div>
-                  <div className="font-bold text-right text-lg">{formatCurrency(totalPrize)}</div>
-                  <div className="border-t border-primary-foreground/20 pt-2">Lucro:</div>
-                  <div className={`border-t border-primary-foreground/20 pt-2 font-bold text-right text-lg ${totalPrize - betCost >= 0 ? "" : "text-ball-miss"}`}>
+                </motion.div>
+                <div className="grid grid-cols-2 gap-3 text-primary-foreground/90 text-sm relative z-10">
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
+                    Custo das apostas:
+                  </motion.div>
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="font-semibold text-right">
+                    {formatCurrency(betCost)}
+                  </motion.div>
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}>
+                    Total de prêmios:
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.5, type: "spring", stiffness: 400 }}
+                    className="font-bold text-right text-lg"
+                  >
+                    {formatCurrency(totalPrize)}
+                  </motion.div>
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }} className="border-t border-primary-foreground/20 pt-2">
+                    Lucro:
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, scale: [0.5, 1.2, 1] }}
+                    transition={{ delay: 0.7, duration: 0.5 }}
+                    className={`border-t border-primary-foreground/20 pt-2 font-bold text-right text-lg ${totalPrize - betCost >= 0 ? "" : "text-ball-miss"}`}
+                  >
                     {formatCurrency(totalPrize - betCost)}
-                  </div>
+                  </motion.div>
                 </div>
               </Card>
             </motion.div>
