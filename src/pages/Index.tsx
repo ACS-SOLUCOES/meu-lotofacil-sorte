@@ -25,8 +25,6 @@ import LotteryBall from "@/components/LotteryBall";
 import { motion, AnimatePresence } from "framer-motion";
 import { Dices, Search, Loader2, Clover, Trophy, Banknote, Brain, TrendingUp, Flame, Snowflake, Atom, Orbit, Sparkles, Sigma, Zap } from "lucide-react";
 
-type MotorKey = "preditivo" | "einstein";
-
 const Index = () => {
   const { toast } = useToast();
   const [numbersPerGame, setNumbersPerGame] = useState(15);
@@ -34,10 +32,20 @@ const Index = () => {
   const [games, setGames] = useState<Game[]>([]);
   const [draw, setDraw] = useState<DrawResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [motorType, setMotorType] = useState<MotorType>("none");
+  const [selectedMotors, setSelectedMotors] = useState<Set<string>>(new Set());
   const [motorLoading, setMotorLoading] = useState(false);
   const [analysis, setAnalysis] = useState<MotorAnalysis | null>(null);
   const [einsteinAnalysis, setEinsteinAnalysis] = useState<EinsteinAnalysis | null>(null);
+
+  const toggleMotor = (motor: string) => {
+    setSelectedMotors(prev => {
+      const next = new Set(prev);
+      if (next.has(motor)) next.delete(motor);
+      else next.add(motor);
+      if (next.size > 0 && !analysis) loadAnalysis();
+      return next;
+    });
+  };
 
   const loadAnalysis = async () => {
     setMotorLoading(true);
@@ -56,30 +64,38 @@ const Index = () => {
   };
 
   const handleGenerate = async () => {
-    if (motorType !== "none") {
+    const hasPreditivo = selectedMotors.has("preditivo");
+    const hasEinstein = selectedMotors.has("einstein");
+
+    if (hasPreditivo || hasEinstein) {
       setMotorLoading(true);
       try {
-        if (!analysis || !einsteinAnalysis) {
-          toast({ title: "🧠 Analisando últimos 5 concursos...", description: "Aguarde enquanto processamos os dados" });
+        let a = analysis;
+        let e = einsteinAnalysis;
+        if (!a || !e) {
+          toast({ title: "🧠 Analisando últimos 5 concursos..." });
           const draws = await fetchLast5Draws();
-          const a = analyzeDraws(draws);
-          const e = analyzeDrawsEinstein(draws);
+          a = analyzeDraws(draws);
+          e = analyzeDrawsEinstein(draws);
           setAnalysis(a);
           setEinsteinAnalysis(e);
-
-          const newGames = motorType === "einstein"
-            ? generateEinsteinGames(e, gameCount, numbersPerGame)
-            : generateSmartGames(a, gameCount, numbersPerGame);
-          setGames(newGames);
-        } else {
-          const newGames = motorType === "einstein"
-            ? generateEinsteinGames(einsteinAnalysis, gameCount, numbersPerGame)
-            : generateSmartGames(analysis, gameCount, numbersPerGame);
-          setGames(newGames);
         }
+
+        let newGames: Game[];
+        if (hasPreditivo && hasEinstein) {
+          newGames = generateCombinedGames(a, e, gameCount, numbersPerGame);
+        } else if (hasEinstein) {
+          newGames = generateEinsteinGames(e, gameCount, numbersPerGame);
+        } else {
+          newGames = generateSmartGames(a, gameCount, numbersPerGame);
+        }
+        setGames(newGames);
         setDraw(null);
-        const motorName = motorType === "einstein" ? "Einstein" : "Preditivo";
-        toast({ title: `🧠 ${gameCount} jogo(s) gerado(s) — Motor ${motorName}!` });
+
+        const names: string[] = [];
+        if (hasPreditivo) names.push("Preditivo");
+        if (hasEinstein) names.push("Einstein");
+        toast({ title: `🧠 ${gameCount} jogo(s) gerado(s) — ${names.join(" + ")}!` });
       } catch {
         toast({ title: "Erro ao gerar jogos", variant: "destructive" });
       } finally {
