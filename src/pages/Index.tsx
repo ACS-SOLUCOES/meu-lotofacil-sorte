@@ -3,8 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
-
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import {
   generateGames,
@@ -14,6 +13,7 @@ import {
   analyzeDrawsEinstein,
   generateSmartGames,
   generateEinsteinGames,
+  generateCombinedGames,
   checkGame,
   type Game,
   type DrawResult,
@@ -23,9 +23,9 @@ import {
 import GameCard, { getPrizeValue } from "@/components/GameCard";
 import LotteryBall from "@/components/LotteryBall";
 import { motion, AnimatePresence } from "framer-motion";
-import { Dices, Search, Loader2, Clover, Trophy, Banknote, Brain, TrendingUp, Flame, Snowflake, Atom, Orbit, Sparkles, Sigma } from "lucide-react";
+import { Dices, Search, Loader2, Clover, Trophy, Banknote, Brain, TrendingUp, Flame, Snowflake, Atom, Orbit, Sparkles, Sigma, Zap } from "lucide-react";
 
-type MotorType = "none" | "preditivo" | "einstein";
+type MotorKey = "preditivo" | "einstein";
 
 const Index = () => {
   const { toast } = useToast();

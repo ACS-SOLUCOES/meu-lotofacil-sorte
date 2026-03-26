@@ -444,3 +444,124 @@ export function generateEinsteinGames(
 
   return games;
 }
+
+// ============ MOTOR COMBINADO ============
+// Merges weights from Preditivo and Einstein motors
+
+export function generateCombinedGame(
+  motorAnalysis: MotorAnalysis,
+  einsteinAnalysis: EinsteinAnalysis,
+  count: number
+): Game {
+  const { frequency, rowDistribution, evenOddRatio } = motorAnalysis;
+  const { boltzmannWeights, symmetryScore, entropy, hiddenPatterns, goldenRatioPositions } = einsteinAnalysis;
+
+  const weights: { num: number; weight: number }[] = [];
+  for (let i = 1; i <= 25; i++) {
+    // Preditivo weight
+    const freqWeight = (frequency[i] + 1) / 6; // normalize to ~0-1
+
+    // Einstein weight
+    const boltzmann = boltzmannWeights[i] || 0.5;
+    const symmetry = symmetryScore[i] || 0.5;
+    const ent = entropy[i] || 0.5;
+    const goldenBonus = goldenRatioPositions.includes(i) ? 1.3 : 1.0;
+
+    let patternBonus = 1.0;
+    for (const pair of hiddenPatterns) {
+      if (pair.includes(i)) patternBonus += 0.15;
+    }
+
+    // Combined formula: average both approaches + randomness
+    const preditivoScore = freqWeight;
+    const einsteinScore = boltzmann * symmetry * Math.sqrt(ent + 0.1) * goldenBonus * patternBonus;
+    const randomFactor = 0.5 + Math.random();
+
+    const weight = (preditivoScore + einsteinScore) * randomFactor;
+    weights.push({ num: i, weight });
+  }
+
+  // Row-aware selection (from Preditivo logic)
+  const totalRowDist = rowDistribution.reduce((a, b) => a + b, 0);
+  const targetRows = rowDistribution.map((r) => Math.round((r / totalRowDist) * count));
+  let diff = count - targetRows.reduce((a, b) => a + b, 0);
+  while (diff !== 0) {
+    const idx = Math.floor(Math.random() * 5);
+    if (diff > 0 && targetRows[idx] < 5) { targetRows[idx]++; diff--; }
+    else if (diff < 0 && targetRows[idx] > 0) { targetRows[idx]--; diff++; }
+  }
+
+  const targetEven = Math.round((evenOddRatio.even / (evenOddRatio.even + evenOddRatio.odd)) * count);
+  const targetOdd = count - targetEven;
+
+  const selected: number[] = [];
+  let evenCount = 0;
+  let oddCount = 0;
+
+  for (let r = 0; r < 5; r++) {
+    const rowNums = ROWS[r];
+    const rowWeights = rowNums
+      .map((n) => {
+        const w = weights.find((x) => x.num === n)!;
+        let eoBonus = 1;
+        if (n % 2 === 0 && evenCount >= targetEven) eoBonus = 0.3;
+        if (n % 2 !== 0 && oddCount >= targetOdd) eoBonus = 0.3;
+        return { num: n, weight: w.weight * eoBonus };
+      })
+      .sort((a, b) => b.weight - a.weight);
+
+    const pickCount = Math.min(targetRows[r], rowNums.length);
+    const rowPool = [...rowWeights];
+    for (let p = 0; p < pickCount && rowPool.length > 0; p++) {
+      const totalW = rowPool.reduce((s, x) => s + x.weight, 0);
+      let rand = Math.random() * totalW;
+      let pickedIdx = 0;
+      for (let i = 0; i < rowPool.length; i++) {
+        rand -= rowPool[i].weight;
+        if (rand <= 0) { pickedIdx = i; break; }
+      }
+      const picked = rowPool[pickedIdx];
+      selected.push(picked.num);
+      if (picked.num % 2 === 0) evenCount++;
+      else oddCount++;
+      rowPool.splice(pickedIdx, 1);
+    }
+  }
+
+  const remaining = Array.from({ length: 25 }, (_, i) => i + 1)
+    .filter((n) => !selected.includes(n))
+    .map((n) => ({ num: n, weight: weights.find((w) => w.num === n)?.weight || 1 }))
+    .sort((a, b) => b.weight - a.weight);
+
+  while (selected.length < count && remaining.length > 0) {
+    const totalW = remaining.reduce((s, x) => s + x.weight, 0);
+    let rand = Math.random() * totalW;
+    let idx = 0;
+    for (let i = 0; i < remaining.length; i++) {
+      rand -= remaining[i].weight;
+      if (rand <= 0) { idx = i; break; }
+    }
+    selected.push(remaining[idx].num);
+    remaining.splice(idx, 1);
+  }
+
+  return selected.sort((a, b) => a - b);
+}
+
+export function generateCombinedGames(
+  motorAnalysis: MotorAnalysis,
+  einsteinAnalysis: EinsteinAnalysis,
+  quantity: number,
+  numbersPerGame: number
+): Game[] {
+  const games: Game[] = [];
+  const seen = new Set<string>();
+  let attempts = 0;
+  while (games.length < quantity && attempts < quantity * 10) {
+    const game = generateCombinedGame(motorAnalysis, einsteinAnalysis, numbersPerGame);
+    const key = game.join(",");
+    if (!seen.has(key)) { seen.add(key); games.push(game); }
+    attempts++;
+  }
+  return games;
+}
